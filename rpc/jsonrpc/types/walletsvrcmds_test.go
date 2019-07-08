@@ -1185,7 +1185,6 @@ func TestWalletSvrCmds(t *testing.T) {
 				NewPassphrase: "new",
 			},
 		},
-
 		{
 			name: "changepublicpassphrase",
 			newCmd: func() (interface{}, error) {

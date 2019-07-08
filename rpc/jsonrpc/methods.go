@@ -3528,7 +3528,7 @@ func (s *Server) walletPassphraseChange(ctx context.Context, icmd interface{}) (
 	return nil, nil
 }
 
-// changePublicPassphrase responds to the walletpassphrasechange request
+// changePublicPassphrase responds to the changepublicpassphrase request
 // by unlocking all accounts with the provided old passphrase, and
 // re-encrypting each private key with an AES key derived from the new
 // passphrase.
