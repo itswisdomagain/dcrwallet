@@ -1191,10 +1191,10 @@ func TestWalletSvrCmds(t *testing.T) {
 				return dcrjson.NewCmd("changepublicpassphrase", "old", "new")
 			},
 			staticCmd: func() interface{} {
-				return NewWalletPassphraseChangeCmd("old", "new")
+				return NewChangePublicPassphraseCmd("old", "new")
 			},
 			marshalled: `{"jsonrpc":"1.0","method":"changepublicpassphrase","params":["old","new"],"id":1}`,
-			unmarshalled: &WalletPassphraseChangeCmd{
+			unmarshalled: &ChangePublicPassphraseCmd{
 				OldPassphrase: "old",
 				NewPassphrase: "new",
 			},
