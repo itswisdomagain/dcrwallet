@@ -102,6 +102,7 @@ var Methods = []struct {
 	{"walletislocked", returnsBool},
 	{"walletlock", nil},
 	{"walletpassphrasechange", nil},
+	{"changepublicpassphrase", nil},
 	{"walletpassphrase", nil},
 }
 

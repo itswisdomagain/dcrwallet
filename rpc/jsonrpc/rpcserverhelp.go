@@ -79,6 +79,7 @@ func helpDescsEnUS() map[string]string {
 		"walletislocked":          "walletislocked\n\nReturns whether or not the wallet is locked.\n\nArguments:\nNone\n\nResult:\ntrue|false (boolean) Whether the wallet is locked\n",
 		"walletlock":              "walletlock\n\nLock the wallet.\n\nArguments:\nNone\n\nResult:\nNothing\n",
 		"walletpassphrasechange":  "walletpassphrasechange \"oldpassphrase\" \"newpassphrase\"\n\nChange the wallet passphrase.\n\nArguments:\n1. oldpassphrase (string, required) The old wallet passphrase\n2. newpassphrase (string, required) The new wallet passphrase\n\nResult:\nNothing\n",
+		"changepublicpassphrase":  "changepublicpassphrase \"oldpassphrase\" \"newpassphrase\"\n\nChange the public wallet passphrase.\n\nArguments:\n1. oldpassphrase (string, required) The old wallet passphrase\n2. newpassphrase (string, required) The new public wallet passphrase\n\nResult:\nNothing\n",
 		"walletpassphrase":        "walletpassphrase \"passphrase\" timeout\n\nUnlock the wallet.\n\nArguments:\n1. passphrase (string, required)  The wallet passphrase\n2. timeout    (numeric, required) The number of seconds to wait before the wallet automatically locks\n\nResult:\nNothing\n",
 	}
 }

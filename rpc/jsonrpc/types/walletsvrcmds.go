@@ -1193,4 +1193,5 @@ func init() {
 	dcrjson.MustRegisterCmd("walletlock", (*WalletLockCmd)(nil), flags)
 	dcrjson.MustRegisterCmd("walletpassphrase", (*WalletPassphraseCmd)(nil), flags)
 	dcrjson.MustRegisterCmd("walletpassphrasechange", (*WalletPassphraseChangeCmd)(nil), flags)
+	dcrjson.MustRegisterCmd("changepublicpassphrase", (*WalletPassphraseChangeCmd)(nil), flags)
 }

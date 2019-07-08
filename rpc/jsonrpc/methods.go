@@ -128,6 +128,7 @@ var handlers = map[string]handler{
 	"walletlock":              {fn: (*Server).walletLock},
 	"walletpassphrase":        {fn: (*Server).walletPassphrase},
 	"walletpassphrasechange":  {fn: (*Server).walletPassphraseChange},
+	"changepublicpassphrase":  {fn: (*Server).changePublicPassphrase},
 
 	// Extensions to the reference client JSON-RPC API
 	"getbestblock":     {fn: (*Server).getBestBlock},
@@ -3517,6 +3518,31 @@ func (s *Server) walletPassphraseChange(ctx context.Context, icmd interface{}) (
 	}
 
 	err := w.ChangePrivatePassphrase([]byte(cmd.OldPassphrase),
+		[]byte(cmd.NewPassphrase))
+	if err != nil {
+		if errors.Is(errors.Passphrase, err) {
+			return nil, rpcErrorf(dcrjson.ErrRPCWalletPassphraseIncorrect, "incorrect passphrase")
+		}
+		return nil, err
+	}
+	return nil, nil
+}
+
+// changePublicPassphrase responds to the walletpassphrasechange request
+// by unlocking all accounts with the provided old passphrase, and
+// re-encrypting each private key with an AES key derived from the new
+// passphrase.
+//
+// If the old passphrase is correct and the passphrase is changed, all
+// wallets will be immediately locked.
+func (s *Server) changePublicPassphrase(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.WalletPassphraseChangeCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	err := w.ChangePublicPassphrase([]byte(cmd.OldPassphrase),
 		[]byte(cmd.NewPassphrase))
 	if err != nil {
 		if errors.Is(errors.Passphrase, err) {

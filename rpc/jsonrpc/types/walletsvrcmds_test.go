@@ -1185,6 +1185,21 @@ func TestWalletSvrCmds(t *testing.T) {
 				NewPassphrase: "new",
 			},
 		},
+
+		{
+			name: "changepublicpassphrase",
+			newCmd: func() (interface{}, error) {
+				return dcrjson.NewCmd("changepublicpassphrase", "old", "new")
+			},
+			staticCmd: func() interface{} {
+				return NewWalletPassphraseChangeCmd("old", "new")
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"changepublicpassphrase","params":["old","new"],"id":1}`,
+			unmarshalled: &WalletPassphraseChangeCmd{
+				OldPassphrase: "old",
+				NewPassphrase: "new",
+			},
+		},
 	}
 
 	t.Logf("Running %d tests", len(tests))
