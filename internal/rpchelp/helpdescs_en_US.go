@@ -132,6 +132,22 @@ var helpDescsEnUS = map[string]string{
 	"getmultisigoutinforesult-redeemscript": "Hex of the redeeming script.",
 	"getmultisigoutinforesult-address":      "Script address.",
 
+	//GetSpvPeerInfo help.
+	"getspvpeerinfo--synopsis": "Returns data on remote peers when in spv mode.",
+
+	// GetSpvPeerInfoResult help.
+	"getspvpeerinforesult-id":      		      "Id of remote peer.",
+	"getspvpeerinforesult-user agent":         	   "User agent.",
+	"getspvpeerinforesult-services":       	      ".",
+	"getspvpeerinforesult-pver":    			  "",
+	"getspvpeerinforesult-initial height":        "Initial block height.",
+	"getspvpeerinforesult-addrlocal":        	  "Local address of the connection.",
+	"getspvpeerinforesult-addr":        	  	  ".",
+	"getspvpeerinforesult-connection":   		  "",
+	"getspvpeerinforesult-send headers":   	  	  "",
+	"getspvpeerinforesult-banscore":   		  	   "",
+
+
 	// GetStakeInfo help.
 	"getstakeinfo--synopsis": "Returns statistics about staking from the wallet.",
 
