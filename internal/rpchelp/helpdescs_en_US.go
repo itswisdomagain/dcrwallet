@@ -137,15 +137,15 @@ var helpDescsEnUS = map[string]string{
 
 	// GetSpvPeerInfoResult help.
 	"getspvpeerinforesult-id":      		      "Id of remote peer.",
-	"getspvpeerinforesult-user agent":         	   "User agent.",
+	"getspvpeerinforesult-addr":        	  	  ".",
+	"getspvpeerinforesult-addrlocal":        	  "Local address of the connection.",
 	"getspvpeerinforesult-services":       	      ".",
+	"getspvpeerinforesult-user agent":         	  "User agent.",
 	"getspvpeerinforesult-pver":    			  "",
 	"getspvpeerinforesult-initial height":        "Initial block height.",
-	"getspvpeerinforesult-addrlocal":        	  "Local address of the connection.",
-	"getspvpeerinforesult-addr":        	  	  ".",
 	"getspvpeerinforesult-connection":   		  "",
 	"getspvpeerinforesult-send headers":   	  	  "",
-	"getspvpeerinforesult-banscore":   		  	   "",
+	"getspvpeerinforesult-banscore":   		  	  "",
 
 
 	// GetStakeInfo help.
