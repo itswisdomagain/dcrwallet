@@ -87,7 +87,6 @@ var handlers = map[string]handler{
 	"getrawchangeaddress":     {fn: (*Server).getRawChangeAddress},
 	"getreceivedbyaccount":    {fn: (*Server).getReceivedByAccount},
 	"getreceivedbyaddress":    {fn: (*Server).getReceivedByAddress},
-	"getpeerinfo":          	{fn: (*Server).getPeerInfo},
 	"getstakeinfo":            {fn: (*Server).getStakeInfo},
 	"getticketfee":            {fn: (*Server).getTicketFee},
 	"gettickets":              {fn: (*Server).getTickets},
@@ -135,6 +134,7 @@ var handlers = map[string]handler{
 	// Extensions to the reference client JSON-RPC API
 	"getbestblock":     {fn: (*Server).getBestBlock},
 	"createnewaccount": {fn: (*Server).createNewAccount},
+	"getpeerinfo":          	{fn: (*Server).getPeerInfo},
 	// This was an extension but the reference implementation added it as
 	// well, but with a different API (no account parameter).  It's listed
 	// here because it hasn't been update to use the reference
@@ -1375,8 +1375,8 @@ func (s *Server) getMasterPubkey(ctx context.Context, icmd interface{}) (interfa
 	return masterPubKey.String(), nil
 }
 
-// getPeerInfo gets the network backend and views
-// the data on remote peers when in spv mode
+// getPeerInfo responds to the getpeerinfo request.
+// It gets the network backend and views the data on remote peers when in spv mode
 func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}, error) {
 	w, ok := s.walletLoader.LoadedWallet()
 	if !ok {
@@ -1391,26 +1391,22 @@ func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}
 	syncer, ok := n.(*spv.Syncer)
 
 	if ok {
-		infos := make([]*types.GetPeerInfoResult, 0, len(syncer.GetRemotePeers()))
+		infos := make([]*dcrdtypes.GetPeerInfoResult, 0, len(syncer.GetRemotePeers()))
 		for _, rp := range syncer.GetRemotePeers(){
 			snapshot := rp.StatsSnapshot()
-			info := &types.GetPeerInfoResult{
-				Id:				snapshot.Id,
+			info := &dcrdtypes.GetPeerInfoResult{
+				ID:				int32(snapshot.Id),
 				Addr:			snapshot.Addr,
 				AddrLocal: 		snapshot.AddrLocal,
 				Services:		fmt.Sprintf("%08d", uint64(snapshot.Services)),
-				UA:				snapshot.Ua,
-				Pver:			snapshot.Pver,
-				InitHeight:		snapshot.InitHeight,
-				C:				snapshot.C,
-				Sendheaders:	snapshot.SendHeaders,
-				Banscore:		snapshot.Banscore,
+				StartingHeight:	int64(snapshot.InitHeight),
+				BanScore:		snapshot.Banscore,
 			}
 			infos = append(infos, info)
 		}
 		return infos, nil
 	} else {
-		return "Wallet not in spv mode.\nUse command 'getpeerinfo' when in spv mode.", nil
+		return "Wallet not in spv mode.", nil
 	}
 }
 

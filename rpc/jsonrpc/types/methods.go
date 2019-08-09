@@ -446,15 +446,6 @@ func NewGetReceivedByAddressCmd(address string, minConf *int) *GetReceivedByAddr
 	}
 }
 
-// GetPeerInfoCmd defines the getpeerinfo JSON-RPC command.
-type GetPeerInfoCmd struct{}
-
-// NewGetPeerInfoCmd returns a new instance which can be used to issue a getpeer
-// JSON-RPC command.
-func NewGetPeerInfoCmd() *GetPeerInfoCmd {
-	return &GetPeerInfoCmd{}
-}
-
 // GetStakeInfoCmd is a type handling custom marshaling and
 // unmarshaling of getstakeinfo JSON wallet extension commands.
 type GetStakeInfoCmd struct {

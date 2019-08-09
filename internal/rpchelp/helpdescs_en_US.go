@@ -132,7 +132,7 @@ var helpDescsEnUS = map[string]string{
 	"getmultisigoutinforesult-redeemscript": "Hex of the redeeming script.",
 	"getmultisigoutinforesult-address":      "Script address.",
 
-	//GetPeerInfo help.
+	//GetPeerInfoCmd help.
 	"getpeerinfo--synopsis": "Returns data on remote peers when in spv mode.",
 
 	// GetPeerInfoResult help.
@@ -140,12 +140,23 @@ var helpDescsEnUS = map[string]string{
 	"getpeerinforesult-addr":        	  	   ".",
 	"getpeerinforesult-addrlocal":        	   "Local address of the connection.",
 	"getpeerinforesult-services":       	   ".",
-	"getpeerinforesult-user agent":            "User agent.",
-	"getpeerinforesult-pver":    			   "",
-	"getpeerinforesult-initial height":        "Initial block height.",
-	"getpeerinforesult-connection":   		   "",
-	"getpeerinforesult-send headers":   	   "",
-	"getpeerinforesult-banscore":   		   "",
+	"getpeerinforesult-relaytxes":             "",
+	"getpeerinforesult-lastsend":    		   "",
+	"getpeerinforesult-lastrecv":              "Initial block height.",
+	"getpeerinforesult-bytessent":   		   "",
+	"getpeerinforesult-bytesrecv":   	       "",
+	"getpeerinforesult-conntime":   		   "",
+	"getpeerinforesult-timeoffset":            "Initial block height.",
+	"getpeerinforesult-pingtime":   		   "",
+	"getpeerinforesult-pingwait":   	       "",
+	"getpeerinforesult-version":   		       "",
+	"getpeerinforesult-subver":   	   		   "",
+	"getpeerinforesult-inbound":   		       "",
+	"getpeerinforesult-startingheight":        "Initial block height.",
+	"getpeerinforesult-currentheight":   	   "",
+	"getpeerinforesult-banscore":   	       "",
+	"getpeerinforesult-syncnode":   		   "",
+
 
 
 	// GetStakeInfo help.
