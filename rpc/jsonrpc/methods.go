@@ -1410,7 +1410,7 @@ func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}
 		}
 		return infos, nil
 	} else {
-		return "Wallet not in spv mode.\nUse command 'getspvpeerinfo' when in spv mode.", nil
+		return "Wallet not in spv mode.\nUse command 'getpeerinfo' when in spv mode.", nil
 	}
 }
 

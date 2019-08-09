@@ -309,6 +309,17 @@ func TestWalletSvrCmds(t *testing.T) {
 			},
 		},
 		{
+			name: "getpeerinfo",
+			newCmd: func() (interface{}, error) {
+				return dcrjson.NewCmd("getpeerinfo")
+			},
+			staticCmd: func() interface{} {
+				return NewGetPeerInfoCmd()
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"getpeerinfo","params":[],"id":1}`,
+			unmarshalled: &GetPeerInfoCmd{},
+		},
+		{
 			name: "gettransaction",
 			newCmd: func() (interface{}, error) {
 				return dcrjson.NewCmd("gettransaction", "123")
