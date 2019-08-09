@@ -132,20 +132,20 @@ var helpDescsEnUS = map[string]string{
 	"getmultisigoutinforesult-redeemscript": "Hex of the redeeming script.",
 	"getmultisigoutinforesult-address":      "Script address.",
 
-	//GetSpvPeerInfo help.
-	"getspvpeerinfo--synopsis": "Returns data on remote peers when in spv mode.",
+	//GetPeerInfo help.
+	"getpeerinfo--synopsis": "Returns data on remote peers when in spv mode.",
 
-	// GetSpvPeerInfoResult help.
-	"getspvpeerinforesult-id":      		      "Id of remote peer.",
-	"getspvpeerinforesult-addr":        	  	  ".",
-	"getspvpeerinforesult-addrlocal":        	  "Local address of the connection.",
-	"getspvpeerinforesult-services":       	      ".",
-	"getspvpeerinforesult-user agent":         	  "User agent.",
-	"getspvpeerinforesult-pver":    			  "",
-	"getspvpeerinforesult-initial height":        "Initial block height.",
-	"getspvpeerinforesult-connection":   		  "",
-	"getspvpeerinforesult-send headers":   	  	  "",
-	"getspvpeerinforesult-banscore":   		  	  "",
+	// GetPeerInfoResult help.
+	"getpeerinforesult-id":      		       "Id of remote peer.",
+	"getpeerinforesult-addr":        	  	   ".",
+	"getpeerinforesult-addrlocal":        	   "Local address of the connection.",
+	"getpeerinforesult-services":       	   ".",
+	"getpeerinforesult-user agent":            "User agent.",
+	"getpeerinforesult-pver":    			   "",
+	"getpeerinforesult-initial height":        "Initial block height.",
+	"getpeerinforesult-connection":   		   "",
+	"getpeerinforesult-send headers":   	   "",
+	"getpeerinforesult-banscore":   		   "",
 
 
 	// GetStakeInfo help.

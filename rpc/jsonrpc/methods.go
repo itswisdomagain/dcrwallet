@@ -87,6 +87,7 @@ var handlers = map[string]handler{
 	"getrawchangeaddress":     {fn: (*Server).getRawChangeAddress},
 	"getreceivedbyaccount":    {fn: (*Server).getReceivedByAccount},
 	"getreceivedbyaddress":    {fn: (*Server).getReceivedByAddress},
+	"getpeerinfo":          	{fn: (*Server).getPeerInfo},
 	"getstakeinfo":            {fn: (*Server).getStakeInfo},
 	"getticketfee":            {fn: (*Server).getTicketFee},
 	"gettickets":              {fn: (*Server).getTickets},
@@ -1374,9 +1375,9 @@ func (s *Server) getMasterPubkey(ctx context.Context, icmd interface{}) (interfa
 	return masterPubKey.String(), nil
 }
 
-// getSpvPeerInfo gets the network backend and views
+// getPeerInfo gets the network backend and views
 // the data on remote peers when in spv mode
-func (s *Server) getSpvPeerInfo(ctx context.Context, icmd interface{}) (interface{}, error) {
+func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}, error) {
 	w, ok := s.walletLoader.LoadedWallet()
 	if !ok {
 		return nil, errUnloadedWallet
@@ -1390,10 +1391,10 @@ func (s *Server) getSpvPeerInfo(ctx context.Context, icmd interface{}) (interfac
 	syncer, ok := n.(*spv.Syncer)
 
 	if ok {
-		infos := make([]*types.GetSpvPeerInfoResult, 0, len(syncer.GetRemotePeers()))
+		infos := make([]*types.GetPeerInfoResult, 0, len(syncer.GetRemotePeers()))
 		for _, rp := range syncer.GetRemotePeers(){
 			snapshot := rp.StatsSnapshot()
-			info := &types.GetSpvPeerInfoResult{
+			info := &types.GetPeerInfoResult{
 				Id:				snapshot.Id,
 				Addr:			snapshot.Addr,
 				AddrLocal: 		snapshot.AddrLocal,
