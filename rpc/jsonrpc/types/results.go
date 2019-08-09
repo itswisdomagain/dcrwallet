@@ -86,7 +86,6 @@ type GetPeerInfoResult struct {
 	C				net.Conn			`json:"connection"`
 	Sendheaders		bool				`json:"send headers"`
 	Banscore		int32				`json:"banscore"`
-
 }
 
 // GetStakeInfoResult models the data returned from the getstakeinfo
