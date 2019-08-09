@@ -73,7 +73,7 @@ type GetPayToContractHashResult struct {
 	Address string `json:"address"`
 }
 
-// GetPeerInfoResult models the data returned from the getspvpeerinfo
+// GetPeerInfoResult models the data returned from the getpeerinfo
 // command
 type GetPeerInfoResult struct {
 	Id				uint64				`json:"id"`

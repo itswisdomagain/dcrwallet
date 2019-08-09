@@ -446,10 +446,10 @@ func NewGetReceivedByAddressCmd(address string, minConf *int) *GetReceivedByAddr
 	}
 }
 
-// GetSpvPeerInfoCmd defines the getspvpeerinfo JSON-RPC command.
+// GetPeerInfoCmd defines the getpeerinfo JSON-RPC command.
 type GetPeerInfoCmd struct{}
 
-// NewGetSpvPeerInfoCmd returns a new instance which can be used to issue a getpeer
+// NewGetPeerInfoCmd returns a new instance which can be used to issue a getpeer
 // JSON-RPC command.
 func NewGetPeerInfoCmd() *GetPeerInfoCmd {
 	return &GetPeerInfoCmd{}
@@ -1361,8 +1361,8 @@ func init() {
 		{"getbestblockhash", (*dcrdtypes.GetBestBlockHashCmd)(nil)},
 		{"getblockcount", (*dcrdtypes.GetBlockCountCmd)(nil)},
 		{"getblockhash", (*dcrdtypes.GetBlockHashCmd)(nil)},
-		{"getpeerinfo", (*GetPeerInfoCmd)(nil)},
 		{"getinfo", (*dcrdtypes.GetInfoCmd)(nil)},
+		{"getpeerinfo", (*dcrdtypes.GetPeerInfoCmd)(nil)},
 		{"help", (*dcrdtypes.HelpCmd)(nil)},
 		{"ticketsforaddress", (*dcrdtypes.TicketsForAddressCmd)(nil)},
 		{"validateaddress", (*dcrdtypes.ValidateAddressCmd)(nil)},
