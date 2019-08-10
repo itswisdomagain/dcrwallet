@@ -61,6 +61,15 @@ type RemotePeer struct {
 	// atomics
 	atomicClosed uint64
 
+	// The following variables must only be used atomically.
+	bytesReceived uint64
+	bytesSent     uint64
+	lastRecv      int64
+	lastSend      int64
+	connected     int32
+	disconnect    int32
+
+
 	id         uint64
 	lp         *LocalPeer
 	ua         string
@@ -126,9 +135,10 @@ type SnapShot struct {
 	Id				uint64
 	Services		wire.ServiceFlag
 	InitHeight		int32
-	RelayTxes  		bool
 	Addr			string
 	AddrLocal		string
+	LastSend		time.Time
+	RelayTxes  		bool
 	Banscore		int32
 }
 
@@ -145,6 +155,7 @@ func (rp *RemotePeer) StatsSnapshot() *SnapShot {
 		Addr:			addr,
 		AddrLocal:      addrLocal,
 		RelayTxes: 		rp.disableRelayTx,
+		LastSend:       rp.LastSend(),
 		Banscore:		int32(rp.banScore.Int()),
 	}
 	rp.statsMu.Unlock()
@@ -236,6 +247,13 @@ func (lp *LocalPeer) ConnectOutbound(ctx context.Context, addr string, reqSvcs w
 	}
 
 	return rp, nil
+}
+
+// LastSend returns the last send time of the peer.
+//
+// This function is safe for concurrent access.
+func (rp *RemotePeer) LastSend() time.Time {
+	return time.Unix(atomic.LoadInt64(&rp.lastSend), 0)
 }
 
 // setDisableRelayTx toggles relaying of transactions for the given remote peer.
@@ -543,6 +561,9 @@ func (lp *LocalPeer) serveUntilError(ctx context.Context, rp *RemotePeer) {
 				log.Debugf("syncWriter(%v).write: %v", rp.raddr, err)
 			}
 		}()
+		// At this point, the message was successfully sent, so
+		// update the remote peer's last send time.
+		atomic.StoreInt64(&rp.lastSend, time.Now().Unix())
 		return rp.writeMessages(gctx)
 	})
 	g.Go(func() error {
