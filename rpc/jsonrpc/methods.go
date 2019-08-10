@@ -1399,6 +1399,7 @@ func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}
 				Addr:			snapshot.Addr,
 				AddrLocal: 		snapshot.AddrLocal,
 				Services:		fmt.Sprintf("%08d", uint64(snapshot.Services)),
+				RelayTxes:		!snapshot.RelayTxes,
 				StartingHeight:	int64(snapshot.InitHeight),
 				BanScore:		snapshot.Banscore,
 			}
