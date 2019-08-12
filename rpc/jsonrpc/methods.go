@@ -1413,6 +1413,7 @@ func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}
 				StartingHeight:	int64(snapshot.InitHeight),
 				CurrentHeight:  snapshot.LastBlock,
 				BanScore:		snapshot.Banscore,
+				SyncNode: 		rp == &p2p.RemotePeer{},
 			}
 			infos = append(infos, info)
 		}
