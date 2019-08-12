@@ -788,9 +788,9 @@ func (rp *RemotePeer) readMessages(ctx context.Context) error {
 			case *wire.MsgPong:
 				rp.receivedPong(ctx, m)
 			}
+			atomic.StoreInt64(&rp.lastRecv, time.Now().Unix())
 		}()
 	}
-	atomic.StoreInt64(&rp.lastRecv, time.Now().Unix())
 	return rp.mr.err
 }
 
