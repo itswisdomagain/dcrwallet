@@ -728,6 +728,7 @@ func rpcFromPeer(p Peer) (*dcrd.RPC, bool) {
 // usage is observed and coin type upgrades are not disabled, the wallet will be
 // upgraded to the SLIP0044 coin type and the address discovery will occur
 // again.
+// todo look here
 func (w *Wallet) DiscoverActiveAddresses(ctx context.Context, p Peer, startBlock *chainhash.Hash, discoverAccts bool) error {
 	const op errors.Op = "wallet.DiscoverActiveAddresses"
 	_, slip0044CoinType := udb.CoinTypes(w.chainParams)

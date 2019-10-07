@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"sync"
 
+	"encoding/binary"
 	"github.com/decred/dcrd/chaincfg/v2"
 	"github.com/decred/dcrd/chaincfg/v2/chainec"
 	"github.com/decred/dcrd/dcrutil/v2"
@@ -620,6 +621,41 @@ func (m *Manager) AccountBranchExtendedPubKey(dbtx walletdb.ReadTx, account, bra
 		return nil, err
 	}
 	return acctXpub.Child(branch)
+}
+
+// VSPPurposeBranchExtendedPubKey returns the extended public key of the
+// vsp purpose branch, which then can be used to derive voting addresses.
+func (m *Manager) VSPPurposeBranchExtendedPubKey(dbtx walletdb.ReadTx) (*hdkeychain.ExtendedKey, error) {
+	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+
+	vspXPubEnc, _, err := fetchVSPPurposeBranchKeys(ns)
+	if err != nil {
+		return nil, err
+	}
+	serializedXPub, err := m.cryptoKeyPub.Decrypt(vspXPubEnc)
+	if err != nil {
+		return nil, errors.E(errors.Crypto, errors.Errorf("decrypt cointype privkey: %v", err))
+	}
+
+	vspXPub, err := hdkeychain.NewKeyFromString(string(serializedXPub), m.chainParams)
+	if err != nil {
+		return nil, errors.E(errors.IO, err)
+	}
+
+	return vspXPub, nil
+}
+
+func (m *Manager) VSPPurposeBranchProperties(dbtx walletdb.ReadTx) (lastUsedIndex, lastReturnedIndex uint32) {
+	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+	bucket := ns.NestedReadBucket(vspPurposeBranchBucketName)
+
+	if buf := bucket.Get(vspPurposeBranchLastUsedAddressIndex); buf != nil {
+		lastUsedIndex = binary.LittleEndian.Uint32(buf)
+	}
+	if buf := bucket.Get(vspPurposeBranchLastReturnedAddressIndex); buf != nil {
+		lastReturnedIndex = binary.LittleEndian.Uint32(buf)
+	}
+	return
 }
 
 // CoinTypePrivKey returns the coin type private key at the BIP0044 path
@@ -2570,6 +2606,9 @@ func createAddressManager(ns walletdb.ReadWriteBucket, seed, pubPassphrase, priv
 	if err != nil {
 		return err
 	}
+
+	// Set the initial last used and last returned address indices for the vsp purpose branch.
+	err = putVSPPurposeBranchInfo(ns, 0, 0)
 
 	// Save the fact this is not a watching-only address manager to the
 	// database.

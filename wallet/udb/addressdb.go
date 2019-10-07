@@ -200,6 +200,11 @@ var (
 	watchingOnlyName            = []byte("watchonly")
 	slip0044Account0RowName     = []byte("slip0044acct0")
 
+	// VSP purpose branch info bucket and key names.
+	vspPurposeBranchBucketName               = []byte("vsppurposebranch")
+	vspPurposeBranchLastUsedAddressIndex     = []byte("lastusedaddressindex")
+	vspPurposeBranchLastReturnedAddressIndex = []byte("lastreturnedaddressindex")
+
 	// Used addresses (used bucket).  This was removed by database version 2.
 	usedAddrBucketName = []byte("usedaddrs")
 )
@@ -376,24 +381,38 @@ func putCoinTypeSLIP0044Keys(ns walletdb.ReadWriteBucket, coinTypePubKeyEnc []by
 	return nil
 }
 
+// fetchVSPPurposeBranchKeys loads the encrypted xpub and xpriv keys for the
+// vsp purpose branch which are in turn used to derive the address private keys
+// to be shared with vsps.
+func fetchVSPPurposeBranchKeys(ns walletdb.ReadBucket) ([]byte, []byte, error) {
+	bucket := ns.NestedReadBucket(mainBucketName)
+
+	vspXPubEnc := bucket.Get(vspPurposeBranchPubKeyName)
+	if vspXPubEnc == nil {
+		return nil, nil, errors.E(errors.IO, "missing encrypted vsp purpose branch xpub key")
+	}
+
+	vspXPrivEnc := bucket.Get(vspPurposeBranchPrivKeyName)
+	if vspXPrivEnc == nil {
+		return nil, nil, errors.E(errors.IO, "missing encrypted vsp purpose branch xpriv key")
+	}
+
+	return vspXPubEnc, vspXPrivEnc, nil
+}
+
 // putVSPPurposeBranchKeys stores the encrypted vsp purpose keys which are in
-// turn used to derive the address private keys to be shared with vsps. Either
-// parameter can be nil in which case no value is written for the parameter.
+// turn used to derive the address private keys to be shared with vsps.
 func putVSPPurposeBranchKeys(ns walletdb.ReadWriteBucket, vspXPubEnc []byte, vspXPrivEnc []byte) error {
 	bucket := ns.NestedReadWriteBucket(mainBucketName)
 
-	if vspXPubEnc != nil {
-		err := bucket.Put(vspPurposeBranchPubKeyName, vspXPubEnc)
-		if err != nil {
-			return errors.E(errors.IO, err)
-		}
+	err := bucket.Put(vspPurposeBranchPubKeyName, vspXPubEnc)
+	if err != nil {
+		return errors.E(errors.IO, err)
 	}
 
-	if vspXPrivEnc != nil {
-		err := bucket.Put(vspPurposeBranchPrivKeyName, vspXPrivEnc)
-		if err != nil {
-			return errors.E(errors.IO, err)
-		}
+	err = bucket.Put(vspPurposeBranchPrivKeyName, vspXPrivEnc)
+	if err != nil {
+		return errors.E(errors.IO, err)
 	}
 
 	return nil
@@ -854,6 +873,24 @@ func putLastAccount(ns walletdb.ReadWriteBucket, account uint32) error {
 	if err != nil {
 		return errors.E(errors.IO, err)
 	}
+	return nil
+}
+
+// putVSPPurposeBranchInfo stores the provided vsp purpose branch information
+// to the database.
+func putVSPPurposeBranchInfo(ns walletdb.ReadWriteBucket, lastUsedAddressIndex, lastReturnedAddressIndex uint32) error {
+	bucket := ns.NestedReadWriteBucket(vspPurposeBranchBucketName)
+
+	err := bucket.Put(vspPurposeBranchLastUsedAddressIndex, uint32ToBytes(lastUsedAddressIndex))
+	if err != nil {
+		return errors.E(errors.IO, err)
+	}
+
+	err = bucket.Put(vspPurposeBranchLastReturnedAddressIndex, uint32ToBytes(lastReturnedAddressIndex))
+	if err != nil {
+		return errors.E(errors.IO, err)
+	}
+
 	return nil
 }
 

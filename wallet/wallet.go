@@ -117,6 +117,9 @@ type Wallet struct {
 	addressBuffers   map[uint32]*bip0044AccountData
 	addressBuffersMu sync.Mutex
 
+	// VSP purpose branch address/privkey handling.
+	vspAddressBuffer *addressBuffer
+
 	// Passphrase unlock
 	passphraseUsedMu        sync.RWMutex
 	passphraseTimeoutMu     sync.Mutex
@@ -4365,6 +4368,7 @@ func Open(cfg *Config) (*Wallet, error) {
 	var vb stake.VoteBits
 	err = walletdb.View(w.db, func(tx walletdb.ReadTx) error {
 		ns := tx.ReadBucket(waddrmgrNamespaceKey)
+
 		lastAcct, err := w.Manager.LastAccount(ns)
 		if err != nil {
 			return err
@@ -4395,6 +4399,17 @@ func Open(cfg *Config) (*Wallet, error) {
 					cursor:     props.LastReturnedInternalIndex - props.LastUsedInternalIndex,
 				},
 			}
+		}
+
+		vspPurposeBranchXPub, err := w.Manager.VSPPurposeBranchExtendedPubKey(tx)
+		if err != nil {
+			return err
+		}
+		vspPBLastUsedIndex, vspPBLastReturnedIndex := w.Manager.VSPPurposeBranchProperties(tx)
+		w.vspAddressBuffer = &addressBuffer{
+			branchXpub: vspPurposeBranchXPub,
+			lastUsed:   vspPBLastUsedIndex,
+			cursor:     vspPBLastReturnedIndex - vspPBLastUsedIndex,
 		}
 
 		vb = w.readDBVoteBits(tx)
