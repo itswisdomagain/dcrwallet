@@ -1238,8 +1238,9 @@ func (w *Wallet) purchaseTickets(ctx context.Context, op errors.Op, n NetworkBac
 		// to delegate voting to, just use an address from
 		// this wallet. Check the passed address from the
 		// request first, then check the ticket address
-		// stored from the configuation. Finally, generate
+		// stored from the configuration. Finally, generate
 		// an address.
+		// todo generate voting address from new purpose branch
 		var addrVote, addrSubsidy dcrutil.Address
 		err := walletdb.Update(w.db, func(dbtx walletdb.ReadWriteTx) error {
 			addrVote = req.VotingAddress
