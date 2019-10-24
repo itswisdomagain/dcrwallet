@@ -1266,6 +1266,21 @@ func NewWalletPassphraseChangeCmd(oldPassphrase, newPassphrase string) *WalletPa
 	}
 }
 
+// WalletPubPassphraseChangeCmd defines the walletpubpassphrasechange JSON-RPC command.
+type WalletPubPassphraseChangeCmd struct {
+	OldPassphrase string
+	NewPassphrase string
+}
+
+// NewWalletPubPassphraseChangeCmd returns a new instance which can be used to
+// issue a walletpubpassphrasechange JSON-RPC command.
+func NewWalletPubPassphraseChangeCmd(oldPassphrase, newPassphrase string) *WalletPubPassphraseChangeCmd {
+	return &WalletPubPassphraseChangeCmd{
+		OldPassphrase: oldPassphrase,
+		NewPassphrase: newPassphrase,
+	}
+}
+
 type registeredMethod struct {
 	method string
 	cmd    interface{}
@@ -1346,6 +1361,7 @@ func init() {
 		{"walletlock", (*WalletLockCmd)(nil)},
 		{"walletpassphrase", (*WalletPassphraseCmd)(nil)},
 		{"walletpassphrasechange", (*WalletPassphraseChangeCmd)(nil)},
+		{"walletpubpassphrasechange", (*WalletPubPassphraseChangeCmd)(nil)},
 	}
 	for i := range register {
 		dcrjson.MustRegister(register[i].method, register[i].cmd, dcrjsonv2WalletOnly)
