@@ -133,7 +133,7 @@ var handlers = map[string]handler{
 	"walletlock":              {fn: (*Server).walletLock},
 	"walletpassphrase":        {fn: (*Server).walletPassphrase},
 	"walletpassphrasechange":  {fn: (*Server).walletPassphraseChange},
-
+	"walletpubpassphrasechange": {fn: (*Server).walletPubPassphraseChange},
 	// Extensions to the reference client JSON-RPC API
 	"getbestblock":     {fn: (*Server).getBestBlock},
 	"createnewaccount": {fn: (*Server).createNewAccount},
@@ -3674,6 +3674,23 @@ func parseOutpoint(s string) (*wire.OutPoint, error) {
 		return nil, errors.E(op, err)
 	}
 	return &wire.OutPoint{Hash: *hash, Index: uint32(index)}, nil
+}
+
+// walletPubPassphraseChange responds to the walletpubpassphrasechange request
+// by modifying the public passphrase of the wallet.
+func (s *Server) walletPubPassphraseChange(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.WalletPubPassphraseChangeCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	err := w.ChangePublicPassphrase(ctx, []byte(cmd.OldPassphrase),
+		[]byte(cmd.NewPassphrase))
+	if errors.Is(errors.Passphrase, err) {
+		return nil, rpcErrorf(dcrjson.ErrRPCWalletPassphraseIncorrect, "incorrect passphrase")
+	}
+	return nil, err
 }
 
 // decodeHexStr decodes the hex encoding of a string, possibly prepending a
