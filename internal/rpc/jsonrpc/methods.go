@@ -1432,27 +1432,16 @@ func (s *Server) getPeerInfo(ctx context.Context, icmd interface{}) (interface{}
 	syncer, ok := n.(*spv.Syncer)
 
 	if ok {
-		infos := make([]*dcrdtypes.GetPeerInfoResult, 0, len(syncer.GetRemotePeers()))
+		infos := make([]*types.GetPeerInfoResult, 0, len(syncer.GetRemotePeers()))
 		for _, rp := range syncer.GetRemotePeers() {
 			snapshot := rp.StatsSnapshot()
-			info := &dcrdtypes.GetPeerInfoResult{
+			info := &types.GetPeerInfoResult{
 				ID:             int32(snapshot.Id),
-				Addr:           snapshot.Addr,
-				AddrLocal:      snapshot.AddrLocal,
+				Addr:           snapshot.Raddr,
 				Services:       fmt.Sprintf("%08d", uint64(snapshot.Services)),
-				RelayTxes:      !snapshot.RelayTxes,
-				LastSend:       snapshot.LastSend.Unix(),
-				LastRecv:       snapshot.LastRecv.Unix(),
-				BytesSent:      snapshot.BytesSent,
-				BytesRecv:      snapshot.BytesRecv,
-				ConnTime:       snapshot.ConnTime.Unix(),
-				TimeOffset:     snapshot.TimeOffset,
-				PingTime:       float64(snapshot.LastPingMicros),
+				StartingHeight: int64(snapshot.InitHeight),
 				Version:        snapshot.Version,
 				SubVer:         snapshot.UserAgent,
-				Inbound:        snapshot.Inbound,
-				StartingHeight: int64(snapshot.InitHeight),
-				CurrentHeight:  snapshot.LastBlock,
 				BanScore:       snapshot.Banscore,
 			}
 			infos = append(infos, info)
