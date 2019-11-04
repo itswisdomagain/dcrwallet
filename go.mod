@@ -25,7 +25,6 @@ require (
 	github.com/decred/dcrd/txscript/v2 v2.1.0
 	github.com/decred/dcrd/wire v1.3.0
 	github.com/decred/dcrwallet/chain/v3 v3.0.0-00010101000000-000000000000
-	github.com/decred/dcrwallet/errors v1.1.0
 	github.com/decred/dcrwallet/errors/v2 v2.0.0
 	github.com/decred/dcrwallet/p2p/v2 v2.0.0
 	github.com/decred/dcrwallet/rpc/client/dcrd v1.0.0
@@ -43,7 +42,6 @@ require (
 	github.com/jrick/logrotate v1.0.0
 	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	google.golang.org/grpc v1.22.0
 )
 
