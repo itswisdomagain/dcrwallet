@@ -95,9 +95,9 @@ func (s *Syncer) String() string {
 // interface.
 func (s *Syncer) LoadTxFilter(ctx context.Context, reload bool, addrs []dcrutil.Address, outpoints []wire.OutPoint) error {
 	s.filterMu.Lock()
-	if reload || s.rescanFilter == nil {
-		s.rescanFilter = wallet.NewRescanFilter(nil, nil)
-		s.filterData = nil
+	if reload || s.rescanFilter[s.filterWalletID] == nil {
+		s.rescanFilter[s.filterWalletID] = wallet.NewRescanFilter(nil, nil)
+		s.filterData[s.filterWalletID] = &blockcf.Entries{}
 	}
 	for _, addr := range addrs {
 		var pkScript []byte
@@ -108,13 +108,13 @@ func (s *Syncer) LoadTxFilter(ctx context.Context, reload bool, addrs []dcrutil.
 			pkScript, _ = txscript.PayToAddrScript(addr)
 		}
 		if pkScript != nil {
-			s.rescanFilter.AddAddress(addr)
-			s.filterData.AddRegularPkScript(pkScript)
+			s.rescanFilter[s.filterWalletID].AddAddress(addr)
+			s.filterData[s.filterWalletID].AddRegularPkScript(pkScript)
 		}
 	}
 	for i := range outpoints {
-		s.rescanFilter.AddUnspentOutPoint(&outpoints[i])
-		s.filterData.AddOutPoint(&outpoints[i])
+		s.rescanFilter[s.filterWalletID].AddUnspentOutPoint(&outpoints[i])
+		s.filterData[s.filterWalletID].AddOutPoint(&outpoints[i])
 	}
 	s.filterMu.Unlock()
 	return nil
@@ -143,9 +143,14 @@ func (s *Syncer) PublishTransactions(ctx context.Context, txs ...*wire.MsgTx) er
 func (s *Syncer) Rescan(ctx context.Context, blockHashes []chainhash.Hash, save func(*chainhash.Hash, []*wire.MsgTx) error) error {
 	const op errors.Op = "spv.Rescan"
 
+	w, ok := s.wallets[s.rescanningWalletID]
+	if !ok {
+		return errors.E(op, errors.Invalid)
+	}
+
 	cfilters := make([]*gcs.Filter, 0, len(blockHashes))
 	for i := 0; i < len(blockHashes); i++ {
-		f, err := s.wallet.CFilter(ctx, &blockHashes[i])
+		f, err := w.CFilter(ctx, &blockHashes[i])
 		if err != nil {
 			return err
 		}
@@ -158,7 +163,7 @@ func (s *Syncer) Rescan(ctx context.Context, blockHashes []chainhash.Hash, save 
 	// for subsequent filter checks, which improves filter matching performance
 	// by checking for less data.
 	s.filterMu.Lock()
-	filterData := s.filterData
+	filterData := *s.filterData[s.rescanningWalletID]
 	s.filterMu.Unlock()
 
 	idx := 0
@@ -262,7 +267,7 @@ FilterLoop:
 				return err
 			}
 
-			matchedTxs, fadded := s.rescanBlock(b)
+			matchedTxs, fadded := s.rescanBlock(b, s.rescanningWalletID)
 			if len(matchedTxs) != 0 {
 				err := save(&blockHashes[i], matchedTxs)
 				if err != nil {
