@@ -1277,6 +1277,7 @@ func init() {
 		{"getcfilterv2", (*GetCFilterV2Cmd)(nil)},
 		{"getinfo", (*GetInfoCmd)(nil)},
 		{"getpeerinfo", (*GetPeerInfoCmd)(nil)},
+		{"gettxout", (*GetTxOutCmd)(nil)},
 		{"help", (*HelpCmd)(nil)},
 		{"sendrawtransaction", (*SendRawTransactionCmd)(nil)},
 		{"ticketsforaddress", (*TicketsForAddressCmd)(nil)},
@@ -1310,6 +1311,7 @@ type (
 	GetCFilterV2Cmd         dcrdtypes.GetCFilterV2Cmd
 	GetInfoCmd              dcrdtypes.GetInfoCmd
 	GetPeerInfoCmd          dcrdtypes.GetPeerInfoCmd
+	GetTxOutCmd             dcrdtypes.GetTxOutCmd
 	HelpCmd                 dcrdtypes.HelpCmd
 	SendRawTransactionCmd   dcrdtypes.SendRawTransactionCmd
 	TicketsForAddressCmd    dcrdtypes.TicketsForAddressCmd
