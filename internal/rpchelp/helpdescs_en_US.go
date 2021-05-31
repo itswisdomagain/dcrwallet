@@ -89,6 +89,20 @@ var helpDescsEnUS = map[string]string{
 	"createrawtransaction-expiry":         "Expiry value; a non-zero value when the transaction expiry",
 	"createrawtransaction--result0":       "Hex-encoded bytes of the serialized transaction",
 
+	// CreatePayJoinTxCmd help.
+	"createpayjointx--synopsis": "Returns a new transaction sending to the provided addresses spending the provided inputs, if provided or inputs from the provided or default account.\n" +
+		"The transaction inputs are signed in the created transaction.",
+	"createpayjointx-outputs":        "JSON object with the destination addresses as keys and amounts as values",
+	"createpayjointx-outputs--key":   "address",
+	"createpayjointx-outputs--value": "n.nnn",
+	"createpayjointx-outputs--desc":  "The destination address as the key and the amount in DCR as the value",
+	"createpayjointx-account":        "Account of outputs to spend in transaction",
+	"createpayjointx-inputs":         "The inputs to the transaction",
+
+	// PayJoinTxResult help.
+	"payjointxresult-hex": "The resulting payjoin transaction encoded as a hexadecimal string",
+	"payjointxresult-fee": "Absolute fee of the payjoin transaction",
+
 	// CreateSignatureCmd help.
 	"createsignature--synopsis":             "Generate a signature for a transaction input script.",
 	"createsignature-address":               "The address of the private key to use to create the signature.",
@@ -107,6 +121,11 @@ var helpDescsEnUS = map[string]string{
 	"dumpprivkey--synopsis": "Returns the private key in WIF encoding that controls some wallet address.",
 	"dumpprivkey-address":   "The address to return a private key for",
 	"dumpprivkey--result0":  "The WIF-encoded private key",
+
+	// FinalizePayjoinTxCmd help.
+	"finalizepayjointx--synopsis": "Re-sign (and optionally broadcast) receiver-updated PayJoin tx.",
+	"finalizepayjointx-hex":       "Hex-encoded serialized PayJoin tx updated with receiver's inputs and signatures.",
+	"finalizepayjointx-send":      "Set true to send the transaction after signing.",
 
 	// FundRawTransactionCmd help.
 	"fundrawtransaction--synopsis":            "Adds unsigned inputs and change output to a raw transaction",
@@ -895,6 +914,14 @@ var helpDescsEnUS = map[string]string{
 	"unlockaccount--synopsis":  "Unlock an individually-encrypted account",
 	"unlockaccount-account":    "Account to unlock",
 	"unlockaccount-passphrase": "Account passphrase",
+
+	// UpdatePayJoinTxCmd help.
+	"updatepayjointx--synopsis": "Updates a payjoin transaction with additional inputs from receiver's wallet.\n" +
+		"The added transaction inputs are signed in the updated transaction.",
+	"updatepayjointx-originaltxhex": "Serialized, hex-encoded signed transaction.",
+	"updatepayjointx-amount": "The minimum amount in DCR of additional inputs to include in the payjoin tx.\n" +
+		"If a value is not provided, or is less than or equal to 0, the input sum of the original tx is used.",
+	"updatepayjointx-account": "Account from which to select additional inputs",
 
 	// ValidateAddressCmd help.
 	"validateaddress--synopsis": "Verify that an address is valid.\n" +

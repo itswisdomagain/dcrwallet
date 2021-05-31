@@ -2447,7 +2447,7 @@ func (s *Store) IsUnspentOutpoint(dbtx walletdb.ReadTx, op *wire.OutPoint) bool 
 	}
 
 	k := canonicalOutPoint(&op.Hash, op.Index)
-	if v := ns.NestedReadBucket(bucketUnspent); v != nil {
+	if v := ns.NestedReadBucket(bucketUnspent).Get(k); v != nil {
 		// Output is mined and not spent by any other mined tx, but may be spent
 		// by an unmined transaction.
 		return existsRawUnminedInput(ns, k) == nil

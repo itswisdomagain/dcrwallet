@@ -4622,6 +4622,13 @@ func (w *Wallet) SignTransaction(ctx context.Context, tx *wire.MsgTx, hashType t
 				continue
 			}
 
+			// Ignore non-wallet inputs that are already signed.
+			isWalletUtxo := w.txStore.IsUnspentOutpoint(dbtx, &txIn.PreviousOutPoint)
+			if !isWalletUtxo && len(txIn.SignatureScript) > 0 {
+				log.Debugf("ignoring already signed non-wallet input %v", &txIn.PreviousOutPoint)
+				continue
+			}
+
 			prevOutScript, ok := additionalPrevScripts[txIn.PreviousOutPoint]
 			if !ok {
 				prevHash := &txIn.PreviousOutPoint.Hash
@@ -4679,6 +4686,7 @@ func (w *Wallet) SignTransaction(ctx context.Context, tx *wire.MsgTx, hashType t
 			if (hashType&txscript.SigHashSingle) !=
 				txscript.SigHashSingle || i < len(tx.TxOut) {
 
+				txIn.SignatureScript = nil // clear in case it was previously set
 				script, err := txscript.SignTxOutput(w.ChainParams(),
 					tx, i, prevOutScript, hashType, source, source, txIn.SignatureScript, true) // Yes treasury
 				// Failure to sign isn't an error, it just means that

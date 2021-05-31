@@ -5,6 +5,13 @@
 
 package types
 
+// PayjoinTxResult models the data from the createpayjointx and updatepayjointx
+// commands.
+type PayjoinTxResult struct {
+	Hex string  `json:"hex"`
+	Fee float64 `json:"fee"`
+}
+
 // FundRawTransactionResult models the data from the fundrawtransaction command.
 type FundRawTransactionResult struct {
 	Hex string  `json:"hex"`

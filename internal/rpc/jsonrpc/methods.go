@@ -50,9 +50,9 @@ import (
 
 // API version constants
 const (
-	jsonrpcSemverString = "8.5.0"
+	jsonrpcSemverString = "8.6.0"
 	jsonrpcSemverMajor  = 8
-	jsonrpcSemverMinor  = 5
+	jsonrpcSemverMinor  = 6
 	jsonrpcSemverPatch  = 0
 )
 
@@ -86,10 +86,12 @@ var handlers = map[string]handler{
 	"consolidate":             {fn: (*Server).consolidate},
 	"createmultisig":          {fn: (*Server).createMultiSig},
 	"createnewaccount":        {fn: (*Server).createNewAccount},
+	"createpayjointx":         {fn: (*Server).createPayJoinTransaction},
 	"createrawtransaction":    {fn: (*Server).createRawTransaction},
 	"createsignature":         {fn: (*Server).createSignature},
 	"discoverusage":           {fn: (*Server).discoverUsage},
 	"dumpprivkey":             {fn: (*Server).dumpPrivKey},
+	"finalizepayjointx":       {fn: (*Server).finalizePayJoinTx},
 	"fundrawtransaction":      {fn: (*Server).fundRawTransaction},
 	"generatevote":            {fn: (*Server).generateVote},
 	"getaccount":              {fn: (*Server).getAccount},
@@ -165,6 +167,7 @@ var handlers = map[string]handler{
 	"treasurypolicy":          {fn: (*Server).treasuryPolicy},
 	"tspendpolicy":            {fn: (*Server).tspendPolicy},
 	"unlockaccount":           {fn: (*Server).unlockAccount},
+	"updatepayjointx":         {fn: (*Server).updatePayJoinTx},
 	"validateaddress":         {fn: (*Server).validateAddress},
 	"validatepredcp0005cf":    {fn: (*Server).validatePreDCP0005CF},
 	"verifymessage":           {fn: (*Server).verifyMessage},
@@ -625,6 +628,145 @@ func (s *Server) createMultiSig(ctx context.Context, icmd interface{}) (interfac
 	}, nil
 }
 
+// createPayJoinTransaction handles createpayjointx command.
+func (s *Server) createPayJoinTransaction(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.CreatePayjoinTxCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	tx := wire.NewMsgTx()
+
+	var totalOutputAmount, totalInputAmount dcrutil.Amount
+
+	// Add all transaction outputs to the transaction after performing
+	// some validity checks.
+	for encodedAddr, amount := range cmd.Outputs {
+		// Decode the provided address.  This also ensures the network encoded
+		// with the address matches the network the server is currently on.
+		addr, err := dcrutil.DecodeAddress(encodedAddr, s.activeNet)
+		if err != nil {
+			return nil, rpcErrorf(dcrjson.ErrRPCInvalidAddressOrKey,
+				"Address %q: %v", encodedAddr, err)
+		}
+
+		// Ensure the address is one of the supported types.
+		switch addr.(type) {
+		case *dcrutil.AddressPubKeyHash:
+		case *dcrutil.AddressScriptHash:
+		default:
+			return nil, rpcErrorf(dcrjson.ErrRPCInvalidAddressOrKey,
+				"Invalid type: %T", addr)
+		}
+
+		// Create a new script which pays to the provided address.
+		pkScript, err := txscript.PayToAddrScript(addr)
+		if err != nil {
+			return nil, rpcErrorf(dcrjson.ErrRPCInternal.Code,
+				"Pay to address script: %v", err)
+		}
+
+		amountAtoms, err := dcrutil.NewAmount(amount)
+		if err != nil {
+			return nil, rpcError(dcrjson.ErrRPCInvalidParameter, err)
+		}
+		// Ensure amount is in the valid range for monetary amounts.
+		if amountAtoms <= 0 || amountAtoms > dcrutil.MaxAmount {
+			return nil, rpcErrorf(dcrjson.ErrRPCInvalidParameter,
+				"Amount outside valid range: %v", amountAtoms)
+		}
+
+		txOut := wire.NewTxOut(int64(amountAtoms), pkScript)
+		tx.AddTxOut(txOut)
+		totalOutputAmount += amountAtoms
+	}
+
+	// Add all transaction inputs to a new transaction after performing
+	// some validity checks. If no inputs are provided, fetch random inputs
+	// from the wallet.
+	if cmd.Inputs == nil {
+		accountNum, err := w.AccountNumber(ctx, *cmd.Account)
+		if err != nil {
+			return nil, err
+		}
+
+		// Because there are no provided inputs, a new transaction can be created.
+		feeRate := w.RelayFee() // TODO: Add optional cmd parameter for feerate, compare FundRawTransactionOptions.
+		confs := int32(1)       // TODO: Add optional cmd parameter for confs, compare FundRawTransactionOptions.
+		newTx, err := w.NewUnsignedTransaction(ctx, tx.TxOut, feeRate, accountNum, confs,
+			wallet.OutputSelectionAlgorithmDefault, nil, nil) // TODO: Add optional cmd parameter for change address.
+		if err != nil {
+			return nil, err
+		}
+
+		// Include chosen inputs and change output (if any) in the original tx.
+		tx.TxIn = newTx.Tx.TxIn
+		totalInputAmount = newTx.TotalInput
+		if newTx.ChangeIndex >= 0 {
+			changeOutput := newTx.Tx.TxOut[newTx.ChangeIndex]
+			tx.TxOut = append(tx.TxOut, changeOutput)
+			totalOutputAmount += dcrutil.Amount(changeOutput.Value)
+		}
+	} else {
+		inputs := *cmd.Inputs
+		for _, input := range inputs {
+			txHash, err := chainhash.NewHashFromStr(input.Txid)
+			if err != nil {
+				return nil, rpcError(dcrjson.ErrRPCInvalidParameter, err)
+			}
+
+			switch input.Tree {
+			case wire.TxTreeRegular, wire.TxTreeStake:
+			default:
+				return nil, rpcErrorf(dcrjson.ErrRPCInvalidParameter,
+					"Tx tree must be regular or stake")
+			}
+
+			amt, err := dcrutil.NewAmount(input.Amount)
+			if err != nil {
+				return nil, rpcError(dcrjson.ErrRPCInvalidParameter, err)
+			}
+			if amt < 0 {
+				return nil, rpcErrorf(dcrjson.ErrRPCInvalidParameter,
+					"Positive input amount is required")
+			}
+
+			prevOut := wire.NewOutPoint(txHash, input.Vout, input.Tree)
+			txIn := wire.NewTxIn(prevOut, int64(amt), nil)
+			tx.AddTxIn(txIn)
+			totalInputAmount += amt
+		}
+	}
+
+	// Sign the tx.
+	signErrs, err := w.SignTransaction(ctx, tx, txscript.SigHashAll, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var signErrors strings.Builder
+	for _, e := range signErrs {
+		input := tx.TxIn[e.InputIndex]
+		signErrors.WriteString(fmt.Sprintf("%s: %s", &input.PreviousOutPoint, e.Error.Error()))
+	}
+	if signErrors.Len() > 0 {
+		return nil, fmt.Errorf("Unable to sign tx inputs:\n%s", signErrors.String())
+	}
+
+	var b strings.Builder
+	b.Grow(2 * tx.SerializeSize())
+	err = tx.Serialize(hex.NewEncoder(&b))
+	if err != nil {
+		return nil, err
+	}
+
+	return types.PayjoinTxResult{
+		Hex: b.String(),
+		Fee: dcrutil.Amount(totalInputAmount - totalOutputAmount).ToCoin(),
+	}, nil
+}
+
 // createRawTransaction handles createrawtransaction commands.
 func (s *Server) createRawTransaction(ctx context.Context, icmd interface{}) (interface{}, error) {
 	cmd := icmd.(*types.CreateRawTransactionCmd)
@@ -838,6 +980,71 @@ func (s *Server) dumpPrivKey(ctx context.Context, icmd interface{}) (interface{}
 		return nil, err
 	}
 	return key, nil
+}
+
+func (s *Server) finalizePayJoinTx(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.FinalizePayjoinTxCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	tx := new(wire.MsgTx)
+	err := tx.Deserialize(hex.NewDecoder(strings.NewReader(cmd.Hex)))
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Verify that the original tx outputs have not been wrongly modified.
+	// TODO: Verify that no new tx input is owned by us. NECESSARY.
+	// TODO: Check against https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#senders-payjoin-proposal-checklist.
+	// TODO: Check that the final fee is sufficient. Also check cmd.AllowHighFees to potentially prevent excessive fees.
+
+	// Re-sign the tx.
+	signErrs, err := w.SignTransaction(ctx, tx, txscript.SigHashAll, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var signErrors strings.Builder
+	for _, e := range signErrs {
+		input := tx.TxIn[e.InputIndex]
+		signErrors.WriteString(fmt.Sprintf("%s: %s", &input.PreviousOutPoint, e.Error.Error()))
+	}
+	if signErrors.Len() > 0 {
+		return nil, fmt.Errorf("Unable to sign tx inputs:\n%s", signErrors.String())
+	}
+
+	var b strings.Builder
+	b.Grow(2 * tx.SerializeSize())
+	err = tx.Serialize(hex.NewEncoder(&b))
+	if err != nil {
+		return nil, err
+	}
+
+	res := types.SignedTransaction{
+		SigningResult: types.SignRawTransactionResult{
+			Hex:      b.String(),
+			Complete: true,
+		},
+	}
+
+	if *cmd.Send && res.SigningResult.Complete {
+		n, err := w.NetworkBackend()
+		if err != nil {
+			return nil, err
+		}
+
+		txHash, err := w.PublishTransaction(ctx, tx, n)
+		if err != nil {
+			return nil, err
+		}
+		txhash := txHash.String()
+		res.Sent = true
+		res.TxHash = &txhash
+	}
+
+	return res, nil
 }
 
 func (s *Server) fundRawTransaction(ctx context.Context, icmd interface{}) (interface{}, error) {
@@ -5219,6 +5426,120 @@ func (s *Server) unlockAccount(ctx context.Context, icmd interface{}) (interface
 	}
 	err = w.UnlockAccount(ctx, account, []byte(cmd.Passphrase))
 	return nil, err
+}
+
+func (s *Server) updatePayJoinTx(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.UpdatePayjoinTxCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	tx := new(wire.MsgTx)
+	err := tx.Deserialize(hex.NewDecoder(strings.NewReader(cmd.OriginalTxHex)))
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Verify that the original tx is broadcastable. Not necessary.
+	// TODO: Verify that none of the original tx inputs is owned by us. NECESSARY.
+	// TODO: Verify that none of the original tx inputs has been sent in a previous payjoin to prevent probing attacks. Not necessary.
+
+	// Verify that at least one of the outputs pays to us.
+	receiverOutputIndex := -1
+	for i := range tx.TxOut {
+		pkScript, ver := tx.TxOut[i].PkScript, tx.TxOut[i].Version
+		_, addrs, _, err := txscript.ExtractPkScriptAddrs(ver, pkScript, s.activeNet, true)
+		if err != nil {
+			return nil, fmt.Errorf("invalid tx input script %v: %v", pkScript, err)
+		}
+		_, err = w.KnownAddress(ctx, addrs[0])
+		if err != nil {
+			if errors.Is(err, errors.NotExist) {
+				continue // check next
+			}
+			return nil, err
+		}
+		receiverOutputIndex = i
+		break
+	}
+	if receiverOutputIndex == -1 {
+		return nil, fmt.Errorf("Invalid original tx: does not contain any output for this wallet")
+	}
+
+	// Determine the minimum amount to add to receiver's output.
+	// If this amount is not specified or the specified amount is invalid,
+	// use the equivalent to the sender's utxos.
+	var minAdditionalOutputAmount int64
+	if cmd.Amount == nil || *cmd.Amount < 0 {
+		for i := range tx.TxIn {
+			minAdditionalOutputAmount += tx.TxIn[i].ValueIn
+		}
+	} else {
+		cmdAmount, err := dcrutil.NewAmount(*cmd.Amount)
+		if err != nil {
+			return nil, rpcErrorf(dcrjson.ErrRPCInternal.Code,
+				"New amount: %v", err)
+		}
+		minAdditionalOutputAmount = int64(cmdAmount)
+	}
+
+	// Select inputs to cover the minimum additional amount.
+	accountNum, err := w.AccountNumber(ctx, *cmd.Account)
+	if err != nil {
+		return nil, err
+	}
+	confs := int32(1) // TODO: Add optional cmd parameter for confs, compare FundRawTransactionOptions.
+	inputDetail, err := w.SelectInputs(ctx, dcrutil.Amount(minAdditionalOutputAmount), wallet.OutputSelectionPolicy{Account: accountNum, RequiredConfirmations: confs})
+	if err != nil {
+		return nil, fmt.Errorf("error selecting inputs to add to tx: %w", err)
+	}
+	// Add chosen inputs to the original tx.
+	// TODO: Randomize.
+	var newInputsTotal int64
+	for _, input := range inputDetail.Inputs {
+		tx.AddTxIn(input)
+		newInputsTotal += input.ValueIn
+	}
+	// Add the total new inputs amount to the receiver's output value.
+	tx.TxOut[receiverOutputIndex].Value += newInputsTotal
+
+	// Sign the added inputs.
+	signErrs, err := w.SignTransaction(ctx, tx, txscript.SigHashAll, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var signErrors strings.Builder
+	for _, e := range signErrs {
+		input := tx.TxIn[e.InputIndex]
+		signErrors.WriteString(fmt.Sprintf("%s: %s", &input.PreviousOutPoint, e.Error.Error()))
+	}
+	if signErrors.Len() > 0 {
+		return nil, fmt.Errorf("Unable to sign tx inputs:\n%s", signErrors.String())
+	}
+
+	var b strings.Builder
+	b.Grow(2 * tx.SerializeSize())
+	err = tx.Serialize(hex.NewEncoder(&b))
+	if err != nil {
+		return nil, err
+	}
+
+	var fee dcrutil.Amount
+	for i := range tx.TxIn {
+		fee += dcrutil.Amount(tx.TxIn[i].ValueIn)
+	}
+	for i := range tx.TxOut {
+		fee -= dcrutil.Amount(tx.TxOut[i].Value)
+	}
+	// TODO: Check that fee is sufficient. If not, add `additionalfeeoutputindex` and `maxadditionalfeecontribution`
+	// to allow receiver deduce additional fees from one of sender's inputs.
+
+	return types.PayjoinTxResult{
+		Hex: b.String(),
+		Fee: fee.ToCoin(),
+	}, nil
 }
 
 func (s *Server) lockAccount(ctx context.Context, icmd interface{}) (interface{}, error) {

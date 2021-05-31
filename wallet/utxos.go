@@ -130,6 +130,7 @@ func (w *Wallet) SelectInputs(ctx context.Context, targetAmount dcrutil.Amount, 
 			}
 		}
 
+		// TODO: Should ignore locked utxos?
 		sourceImpl := w.txStore.MakeInputSource(txmgrNs, addrmgrNs, policy.Account,
 			policy.RequiredConfirmations, tipHeight, nil)
 		var err error
@@ -139,6 +140,7 @@ func (w *Wallet) SelectInputs(ctx context.Context, targetAmount dcrutil.Amount, 
 	if err != nil {
 		err = errors.E(op, err)
 	}
+	// TODO: Lock the selected utxos before returning?
 	return inputDetail, err
 }
 

@@ -125,6 +125,28 @@ func NewCreateMultisigCmd(nRequired int, keys []string) *CreateMultisigCmd {
 	}
 }
 
+// CreatePayjoinTxCmd defines the createpayjointx JSON-RPC command.
+type CreatePayjoinTxCmd struct {
+	Outputs map[string]float64 `jsonrpcusage:"{\"address\":amount,...}"`
+	Account *string            `jsonrpcdefault:"\"default\""`
+	Inputs  *[]dcrdtypes.TransactionInput
+}
+
+// UpdatePayjoinTxCmd defines the updatepayjointx JSON-RPC command.
+type UpdatePayjoinTxCmd struct {
+	OriginalTxHex string   `json:"originaltxhex"`
+	Amount        *float64 `json:"amount"`
+	Account       *string  `jsonrpcdefault:"\"default\""`
+	// Outputs       *map[string]float64 `jsonrpcusage:"{\"address\":amount,...}"`
+	// Inputs        *[]dcrdtypes.TransactionInput
+}
+
+// FinalizePayjoinTxCmd defines the finalizepayjointx JSON-RPC command.
+type FinalizePayjoinTxCmd struct {
+	Hex  string `json:"hex"`
+	Send *bool  `json:"send" jsonrpcdefault:"true"`
+}
+
 // CreateSignatureCmd defines the createsignature JSON-RPC command.
 type CreateSignatureCmd struct {
 	Address               string
@@ -1187,10 +1209,12 @@ func init() {
 		{"consolidate", (*ConsolidateCmd)(nil)},
 		{"createmultisig", (*CreateMultisigCmd)(nil)},
 		{"createnewaccount", (*CreateNewAccountCmd)(nil)},
+		{"createpayjointx", (*CreatePayjoinTxCmd)(nil)},
 		{"createsignature", (*CreateSignatureCmd)(nil)},
 		{"createvotingaccount", (*CreateVotingAccountCmd)(nil)},
 		{"discoverusage", (*DiscoverUsageCmd)(nil)},
 		{"dumpprivkey", (*DumpPrivKeyCmd)(nil)},
+		{"finalizepayjointx", (*FinalizePayjoinTxCmd)(nil)},
 		{"fundrawtransaction", (*FundRawTransactionCmd)(nil)},
 		{"generatevote", (*GenerateVoteCmd)(nil)},
 		{"getaccount", (*GetAccountCmd)(nil)},
@@ -1254,6 +1278,7 @@ func init() {
 		{"treasurypolicy", (*TreasuryPolicyCmd)(nil)},
 		{"tspendpolicy", (*TSpendPolicyCmd)(nil)},
 		{"unlockaccount", (*UnlockAccountCmd)(nil)},
+		{"updatepayjointx", (*UpdatePayjoinTxCmd)(nil)},
 		{"validatepredcp0005cf", (*ValidatePreDCP0005CFCmd)(nil)},
 		{"walletinfo", (*WalletInfoCmd)(nil)},
 		{"walletislocked", (*WalletIsLockedCmd)(nil)},
