@@ -8,6 +8,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"decred.org/dcrwallet/v2/chain"
@@ -30,7 +32,17 @@ import (
 	"decred.org/dcrwallet/v2/ticketbuyer"
 	"decred.org/dcrwallet/v2/version"
 	"decred.org/dcrwallet/v2/wallet"
+	"decred.org/dcrwallet/v2/wallet/txrules"
+	"decred.org/dcrwallet/v2/wallet/txsizes"
+	"decred.org/dcrwallet/v2/walletseed"
 	"github.com/decred/dcrd/addrmgr/v2"
+	"github.com/decred/dcrd/chaincfg/chainhash"
+	"github.com/decred/dcrd/chaincfg/v3"
+	"github.com/decred/dcrd/dcrec"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/decred/dcrd/dcrutil/v4"
+	"github.com/decred/dcrd/hdkeychain/v3"
+	"github.com/decred/dcrd/txscript/v4"
 	"github.com/decred/dcrd/wire"
 )
 
@@ -44,16 +56,158 @@ var (
 )
 
 func main() {
-	// Create a context that is cancelled when a shutdown request is received
-	// through an interrupt signal or an RPC request.
-	ctx := withShutdownCancel(context.Background())
-	go shutdownListener()
-
-	// Run the wallet until permanent failure or shutdown is requested.
-	if err := run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		os.Exit(1)
+	if e := do(); e != nil {
+		fmt.Println(e.Error())
 	}
 }
+
+func do() error {
+	seed, err := walletseed.DecodeUserInput("")
+	if err != nil {
+		return err
+	}
+	params := chaincfg.MainNetParams()
+	root, err := hdkeychain.NewMaster(seed, params)
+	if err != nil {
+		return err
+	}
+	purpose, err := root.Child(44 + hdkeychain.HardenedKeyStart)
+	if err != nil {
+		return err
+	}
+	// Derive the coin type key as a child of the purpose key.
+	coinTypeKey, err := purpose.Child(params.SLIP0044CoinType + hdkeychain.HardenedKeyStart)
+	if err != nil {
+		return err
+	}
+	acctPrivKey, err := coinTypeKey.Child(0 + hdkeychain.HardenedKeyStart)
+	if err != nil {
+		return err
+	}
+	externalAddrKey, err := acctPrivKey.Child(0)
+	if err != nil {
+		return err
+	}
+	getAddress := func(i uint32) (*hdkeychain.ExtendedKey, *dcrutil.AddressPubKeyHash, error) {
+		apk, err := externalAddrKey.Child(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		pkh := dcrutil.Hash160(apk.Neuter().SerializedPubKey())
+		apkh, err := dcrutil.NewAddressPubKeyHash(pkh, params, dcrec.STEcdsaSecp256k1)
+		return apk, apkh, err
+	}
+	var addrPrivKey *hdkeychain.ExtendedKey
+	var i uint32
+	for i = 1; i < 100; i++ {
+		apk, apkh, err := getAddress(i)
+		if err != nil {
+			return err
+		}
+		addrStr := apkh.Address()
+		if addrStr == "DsoijhPChgzRDtMXrkdSZkxDxzGotYK5Mnn" {
+			addrPrivKey = apk
+			println("found last payment address, generating next address")
+			_, nextAdd, err := getAddress(i + 1)
+			if err != nil {
+				return err
+			}
+			println("next address:", nextAdd.Address())
+			// nextAddApk, nextAdd, err := getAddress(i + 2)
+			// if err != nil {
+			// 	return err
+			// }
+			// println("next address, saved key:", nextAdd.Address())
+			// addrPrivKey = nextAddApk
+			// return nil
+		}
+	}
+
+	mtx := wire.NewMsgTx()
+	txHash, err := chainhash.NewHashFromStr("74bd3ace72092abac7d2d7e032af76b600b752c11d31466fa397493c27d9cd09")
+	if err != nil {
+		return err
+	}
+	amtIn, err := dcrutil.NewAmount(2.72284322)
+	if err != nil {
+		return err
+	}
+	prevOut := wire.NewOutPoint(txHash, 0, wire.TxTreeRegular)
+	txIn := wire.NewTxIn(prevOut, int64(amtIn), nil)
+	mtx.AddTxIn(txIn)
+
+	addr, err := dcrutil.DecodeAddress("Dsa1DgVBuQG4qysANTMAZ3cEynjn269UvZh", params)
+	if err != nil {
+		return err
+	}
+	// Create a new script which pays to the provided address.
+	pkScript, err := txscript.PayToAddrScript(addr)
+	if err != nil {
+		return err
+	}
+	// atomic, err := dcrutil.NewAmount(2)
+	// if err != nil {
+	// 	return err
+	// }
+	// txOut := wire.NewTxOut(int64(atomic), pkScript)
+	txOut := wire.NewTxOut(int64(amtIn), pkScript) // same amount as input, fee will be deducted
+
+	relayFeePerKb, err := dcrutil.NewAmount(0.00010039)
+	if err != nil {
+		return err
+	}
+	maxSignedSize := txsizes.EstimateSerializeSize([]int{txsizes.RedeemP2PKHSigScriptSize}, []*wire.TxOut{txOut}, 0)
+	targetFee := txrules.FeeForSerializeSize(relayFeePerKb, maxSignedSize)
+
+	txOut.Value -= int64(targetFee)
+	mtx.AddTxOut(txOut)
+	fmt.Printf("Target fee is %f. New send amount: %f\n", targetFee.ToCoin(), dcrutil.Amount(txOut.Value).ToCoin())
+
+	prevOutScript, err := hex.DecodeString("76a914f99ce4de3a6c24600aefccad15b0751cc36b15bf88ac")
+	if err != nil {
+		return err
+	}
+
+	var source sigDataSource
+	source.key = func(addr dcrutil.Address) ([]byte, dcrec.SignatureType, bool, error) {
+		serializedPriv, err := addrPrivKey.SerializedPrivKey()
+		if err != nil {
+			return nil, dcrec.STEcdsaSecp256k1, false, err
+		}
+		key := secp256k1.PrivKeyFromBytes(serializedPriv)
+		return key.Serialize(), dcrec.STEcdsaSecp256k1, true, nil
+	}
+	source.script = func(addr dcrutil.Address) ([]byte, error) {
+		return nil, fmt.Errorf("oops")
+	}
+	txIn = mtx.TxIn[0]
+	script, err := txscript.SignTxOutput(params,
+		mtx, 0, prevOutScript, txscript.SigHashAll, source, source, txIn.SignatureScript, true) // Yes treasury
+	if err != nil {
+		return err
+	}
+	txIn.SignatureScript = script
+
+	// Return the serialized and hex-encoded transaction.
+	sb := new(strings.Builder)
+	err = mtx.Serialize(hex.NewEncoder(sb))
+	if err != nil {
+		return err
+	}
+	fmt.Println(sb.String())
+
+	return nil
+}
+
+type sigDataSource struct {
+	key    func(dcrutil.Address) ([]byte, dcrec.SignatureType, bool, error)
+	script func(dcrutil.Address) ([]byte, error)
+}
+
+func (s sigDataSource) GetKey(a dcrutil.Address) ([]byte, dcrec.SignatureType, bool, error) {
+	return s.key(a)
+}
+func (s sigDataSource) GetScript(a dcrutil.Address) ([]byte, error) { return s.script(a) }
 
 // done returns whether the context's Done channel was closed due to
 // cancellation or exceeded deadline.
