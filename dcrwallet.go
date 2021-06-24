@@ -8,6 +8,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"decred.org/dcrwallet/v2/chain"
@@ -30,7 +32,15 @@ import (
 	"decred.org/dcrwallet/v2/ticketbuyer"
 	"decred.org/dcrwallet/v2/version"
 	"decred.org/dcrwallet/v2/wallet"
+	"decred.org/dcrwallet/v2/walletseed"
 	"github.com/decred/dcrd/addrmgr/v2"
+	"github.com/decred/dcrd/chaincfg/chainhash"
+	"github.com/decred/dcrd/chaincfg/v3"
+	"github.com/decred/dcrd/dcrec"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/decred/dcrd/dcrutil/v4"
+	"github.com/decred/dcrd/hdkeychain/v3"
+	"github.com/decred/dcrd/txscript/v4"
 	"github.com/decred/dcrd/wire"
 )
 
@@ -44,16 +54,134 @@ var (
 )
 
 func main() {
-	// Create a context that is cancelled when a shutdown request is received
-	// through an interrupt signal or an RPC request.
-	ctx := withShutdownCancel(context.Background())
-	go shutdownListener()
-
-	// Run the wallet until permanent failure or shutdown is requested.
-	if err := run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		os.Exit(1)
+	if e := do(); e != nil {
+		fmt.Println(e.Error())
 	}
 }
+
+func do() error {
+	seed, err := walletseed.DecodeUserInput("")
+	if err != nil {
+		return err
+	}
+	params := chaincfg.MainNetParams()
+	root, err := hdkeychain.NewMaster(seed, params)
+	if err != nil {
+		return err
+	}
+	purpose, err := root.Child(44 + hdkeychain.HardenedKeyStart)
+	if err != nil {
+		return err
+	}
+	// Derive the coin type key as a child of the purpose key.
+	coinTypeKey, err := purpose.Child(params.SLIP0044CoinType + hdkeychain.HardenedKeyStart)
+	if err != nil {
+		return err
+	}
+	acctPrivKey, err := coinTypeKey.Child(0 + hdkeychain.HardenedKeyStart)
+	if err != nil {
+		return err
+	}
+	externalAddrKey, err := acctPrivKey.Child(0)
+	if err != nil {
+		return err
+	}
+	var addrPrivKey *hdkeychain.ExtendedKey
+	var i uint32
+	for i = 1; i < 100; i++ {
+		apk, err := externalAddrKey.Child(i)
+		if err != nil {
+			return err
+		}
+		pkh := dcrutil.Hash160(apk.Neuter().SerializedPubKey())
+		apkh, err := dcrutil.NewAddressPubKeyHash(pkh, params,
+			dcrec.STEcdsaSecp256k1)
+		if err != nil {
+			return err
+		}
+		addrStr := apkh.Address()
+		if addrStr == "DsZUKoAxdD44J6hyZsm2D5SCPBPVW39RKvA" {
+			addrPrivKey = apk
+			break
+		}
+	}
+
+	mtx := wire.NewMsgTx()
+	txHash, err := chainhash.NewHashFromStr("e92a36d64b987a487b2ce21b86a22af9304b9ab8a666256853778bd27c7c2c46")
+	if err != nil {
+		return err
+	}
+	amt, err := dcrutil.NewAmount(4.84233585)
+	if err != nil {
+		return err
+	}
+	prevOut := wire.NewOutPoint(txHash, 0, wire.TxTreeRegular)
+	txIn := wire.NewTxIn(prevOut, int64(amt), nil)
+	mtx.AddTxIn(txIn)
+
+	addr, err := dcrutil.DecodeAddress("Dsa1DgVBuQG4qysANTMAZ3cEynjn269UvZh", params)
+	if err != nil {
+		return err
+	}
+	// Create a new script which pays to the provided address.
+	pkScript, err := txscript.PayToAddrScript(addr)
+	if err != nil {
+		return err
+	}
+	atomic, err := dcrutil.NewAmount(4.84218485)
+	if err != nil {
+		return err
+	}
+	txOut := wire.NewTxOut(int64(atomic), pkScript)
+	mtx.AddTxOut(txOut)
+
+	tx := wire.NewMsgTx()
+	err = tx.Deserialize(hex.NewDecoder(strings.NewReader("01000000041fe40fb9fa3795d8cf50ae68970abadadf4b3272b07c64490c28cc7df36acfb90000000000ffffffff1fe48ac76a73c7398680989cf91e2c8d4f4b95a4b7daeb8b6a6024d334c9e5240000000000ffffffff1fe4bc828ce776aa6974a0c490c9d0ef2d1bc0d06f728069b552b1ced4567fd40000000000ffffffff1fe774cad26c31a8347b7926f5d00bae21544a77b8d4fe9b8db128f009118bd70000000000ffffffff0271d1dc1c0000000000001976a9145d515bd3f9723c85f95d577cea233f949e1b64b588ac8eec7e0000000000000017a914f5916158e3e2c4551c1796708db8367207ed13bb87000000000000000004230fbf07000000002546080000000000fd450147304402204b8e640ffcc9f20f522ef336209853ba718097ef76828b0227c1a112f11177d4022052bc1fa34cf39c4af35e88484f9292493fafcfeea67312323eb81c91f982386301483045022100ad9a3296cf800d1e8cda6bfae03b1bb585fe178335c1ebd2ef0aae3a354e9e1f022049364fc39540e55c1e498a6e6ee96ebce40a9a63c1621614b35ddcce7a9dc31201483045022100922e6e5ef1c9395ce03c5a890fbb6dd576e11252dd39f567637fafc57a2c0c1302202bae782a40e575af9f7ad45280debb3dfa5f5f89e79c905a13a8be19b8fd11ac014c69532102bc2a9206d10e5d5173583cbafebc78998745abeca13ed33151c93afbd850ca8e2103c995ce342de266d561d6ab4b06c7a14adb0f0b30002997f076f71c8f8ac93c98210330d6c9371b561d2b961a5987d336c0186a9c5dacd6ed4551420b5977e46a29b453ae230fbf07000000001057080000000000fd4501483045022100f6ef8b801392fa5c201de0508ab6132c6a12330292403883f60c03354535b24102201d4c7cd84cb986dd7060e9784ad825f30e06328bc3ca2e7e4b1617a171815e4501483045022100c837e3132f7b980c1f80ff760851f3462ac724466ddb447acd759cf9c60b09ed0220183a5134e8521d0f64aa91bffa23be4ab41717cf854d93d2d395c5ce13801e100147304402201866cd17e5bc98eb2dcfd8059f68397bec84e27895d4b4a73c1488f918c5722902203ea7da7f28c1251ab3be0b47be572d073ca8e57f84c133d999713dc0745fea22014c69532102bc2a9206d10e5d5173583cbafebc78998745abeca13ed33151c93afbd850ca8e2103c995ce342de266d561d6ab4b06c7a14adb0f0b30002997f076f71c8f8ac93c98210330d6c9371b561d2b961a5987d336c0186a9c5dacd6ed4551420b5977e46a29b453ae8272320600000000544d080000000000fd4501483045022100b1648e1ac0dbb4d6e052cb774e7b58210a890f92a29490de1ccf4be55b2394c902200a992c57c8bbd3fe115e688366b4254ab00484d4303f6ab764e2e3efebb5d6b50147304402205bb72e9dfd02156518bac03a8fca48db54e0b5421a887a516f7909ee9694d9cc0220175582ae5161a48cc4064d4bd1279242f95810fbda2352fb909ca896899360270148304502210094cb53b011b0cac2ab8ae6152ed4587a8b25d3741b7274958fbddb7f1944b2b2022040bedc81b750eb644c5662f27a9b59aa985c8f65c178b314f79e15af353a871e014c69532102bc2a9206d10e5d5173583cbafebc78998745abeca13ed33151c93afbd850ca8e2103c995ce342de266d561d6ab4b06c7a14adb0f0b30002997f076f71c8f8ac93c98210330d6c9371b561d2b961a5987d336c0186a9c5dacd6ed4551420b5977e46a29b453aec56cab0700000000d15c080000000000fd4401483045022100ddac557978a45a9e973a46358e4993e67a2e50f5327e5e623872f146ab5843c102200bbf9db2b1859a809c9183a3a819d4e7e772599e9f1e2b19a30e9b255f5fb47401473044022055538dbc1a69c1af0e8eb933bb4b9c227dcb1256930909dbd29a341a66b2383c02201ddfd34587935f9c9cf1cd3104607e41948d0feaeb09438bea21f15b9a9aea9a01473044022072452c10a7a54e084f75d47bb05e5be40ab041edd5fd95c3af928c483ad9942402207421d82022b8b1001dc6612811bf06803f2bb6304d89ddaeaaf6b2cafdf9dc2b014c69532102bc2a9206d10e5d5173583cbafebc78998745abeca13ed33151c93afbd850ca8e2103c995ce342de266d561d6ab4b06c7a14adb0f0b30002997f076f71c8f8ac93c98210330d6c9371b561d2b961a5987d336c0186a9c5dacd6ed4551420b5977e46a29b453ae")))
+	if err != nil {
+		return err
+	}
+	prevOutScript := tx.TxOut[0].PkScript
+
+	var source sigDataSource
+	source.key = func(addr dcrutil.Address) ([]byte, dcrec.SignatureType, bool, error) {
+		serializedPriv, err := addrPrivKey.SerializedPrivKey()
+		if err != nil {
+			return nil, dcrec.STEcdsaSecp256k1, false, err
+		}
+		key := secp256k1.PrivKeyFromBytes(serializedPriv)
+		return key.Serialize(), dcrec.STEcdsaSecp256k1, true, nil
+	}
+	source.script = func(addr dcrutil.Address) ([]byte, error) {
+		return nil, fmt.Errorf("oops")
+	}
+	txIn = mtx.TxIn[0]
+	script, err := txscript.SignTxOutput(params,
+		mtx, 0, prevOutScript, txscript.SigHashAll, source, source, txIn.SignatureScript, true) // Yes treasury
+	if err != nil {
+		return err
+	}
+	txIn.SignatureScript = script
+
+	// Return the serialized and hex-encoded transaction.
+	sb := new(strings.Builder)
+	err = mtx.Serialize(hex.NewEncoder(sb))
+	if err != nil {
+		return err
+	}
+	fmt.Println(sb.String())
+
+	return nil
+}
+
+type sigDataSource struct {
+	key    func(dcrutil.Address) ([]byte, dcrec.SignatureType, bool, error)
+	script func(dcrutil.Address) ([]byte, error)
+}
+
+func (s sigDataSource) GetKey(a dcrutil.Address) ([]byte, dcrec.SignatureType, bool, error) {
+	return s.key(a)
+}
+func (s sigDataSource) GetScript(a dcrutil.Address) ([]byte, error) { return s.script(a) }
 
 // done returns whether the context's Done channel was closed due to
 // cancellation or exceeded deadline.
